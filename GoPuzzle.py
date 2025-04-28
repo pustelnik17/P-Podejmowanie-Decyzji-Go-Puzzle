@@ -19,7 +19,7 @@ def neighbors(i, j):
     return [(i+di, j+dj) for di, dj in [(-1,0),(1,0),(0,-1),(0,1)]
             if 0 <= i+di < N and 0 <= j+dj < N]
 
-model = gp.Model("go_advanced")
+model = gp.Model("go")
 model.setParam("OutputFlag", 0) 
 
 # x[i,j] = 1 jeśli czarny stawia kamień
