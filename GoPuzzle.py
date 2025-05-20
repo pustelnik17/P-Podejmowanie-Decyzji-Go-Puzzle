@@ -51,7 +51,7 @@ for i in range(N):
     for j in range(N):
         if board[i, j] == empty:
             model.addConstr(y_l[i, j] == 1-x[i, j])
-        elif board[i, j] == white:
+        if board[i, j] == white:
             model.addConstr(y_l[i, j] == gp.max_(y_l[ni, nj] for ni, nj in neighbors(i, j)))
 
 
