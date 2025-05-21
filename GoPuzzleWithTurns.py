@@ -72,39 +72,21 @@ for i in range(N):
 for t in range(1, T):
     model.addConstr(gp.quicksum(x[i, j, t] - x[i, j, t-1] for i in range(N) for j in range(N)) <= 1)
 
-ma_puste_oddechy = model.addVars(N, N, T, vtype=GRB.BINARY)
-ma_oddechy_przez_sasiadow = model.addVars(N, N, T, vtype=GRB.BINARY)
 # Oddechy białego w turze t-tej
 for i in range(N):
     for j in range(N):
         for t in range(T):
-            # # Białe kamienie z oddechami mogą być tylko tam, gdzie są białe kamienie
-            # model.addConstr(yl[i, j, t] <= y[i, j, t])
-            # # Jeśli conajmniej 1 sąsiednie pole jest puste, to kamień ma oddech 
-            # model.addConstr(yl[i, j, t] <= gp.quicksum((1-x[ni, nj, t])*(1-y[ni, nj, t]) for ni, nj in neighbors(i, j)))
-            # # Jeśli na conajmniej 1 sąsiednim polu jest biały kamień, który ma oddech, to kamień ma oddech 
-            # model.addConstr(yl[i, j, t] <= gp.quicksum(yl[ni, nj, t] for ni, nj in neighbors(i, j)))   
-
             # Białe kamienie z oddechami mogą być tylko tam, gdzie są białe kamienie
             model.addConstr(yl[i, j, t] <= y[i, j, t])
-            
             # Jeśli conajmniej 1 sąsiednie pole jest puste, to kamień ma oddech 
-            oddechy_puste = gp.quicksum((1 - x[ni, nj, t]) * (1 - y[ni, nj, t]) for ni, nj in neighbors(i, j))
-            model.addConstr(ma_puste_oddechy[i, j, t] <= oddechy_puste)
-            model.addConstr(ma_puste_oddechy[i, j, t] * 4 >= oddechy_puste)
-            model.addConstr(yl[i, j, t] >= ma_puste_oddechy[i, j, t] * y[i, j, t])
-            
-            # Jeśli na conajmniej 1 sąsiednim polu jest biały kamień, który ma oddech, to kamień ma oddech
-            oddechy_przez_sasiadow = gp.quicksum(yl[ni, nj, t] for ni, nj in neighbors(i, j))
-            model.addConstr(ma_oddechy_przez_sasiadow[i, j, t] <= oddechy_przez_sasiadow)
-            model.addConstr(ma_oddechy_przez_sasiadow[i, j, t] * 4 >= oddechy_przez_sasiadow)
-            model.addConstr(yl[i, j, t] >= ma_oddechy_przez_sasiadow[i, j, t] * y[i, j, t])
-                 
-            model.addConstr(y[i, j, t] <= yl[i, j, t])
+            # model.addConstr(yl[i, j, t] <= gp.quicksum((1-x[ni, nj, t])*(1-y[ni, nj, t]) for ni, nj in neighbors(i, j)))
+            # Jeśli na conajmniej 1 sąsiednim polu jest biały kamień, który ma oddech, to kamień ma oddech 
+            model.addConstr(yl[i, j, t] <= gp.quicksum(yl[ni, nj, t] for ni, nj in neighbors(i, j)))   
+
 # Funkcja celu - maksymalizujemy ilość kamieni na planszy
 model.setObjective(
     gp.quicksum(x[i, j, t] for i in range(N) for j in range(N) for t in range(T)) * N*N + 
-    gp.quicksum(y[i, j, t] for i in range(N) for j in range(N) for t in range(T)) * N*N -
+    gp.quicksum(y[i, j, t] for i in range(N) for j in range(N) for t in range(T)) * N*N +
     gp.quicksum(yl[i, j, t] for i in range(N) for j in range(N) for t in range(T)),
     GRB.MAXIMIZE
 )
