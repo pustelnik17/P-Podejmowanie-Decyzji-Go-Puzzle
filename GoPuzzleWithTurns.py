@@ -3,8 +3,7 @@ import numpy as np
 from gurobipy import GRB
 
 N = 5
-M = 2
-T = 1 + 2
+T = 5
 
 empty, black, white = 0, 1, 2
 
@@ -14,7 +13,14 @@ board = np.array([
     [0, 2, 2, 0, 0],
     [0, 0, 0, 0, 0],
     [0, 0, 0, 0, 0]
-]) 
+])
+# board = np.array([
+#     [2, 2, 2, 2, 2],
+#     [2, 1, 1, 2, 2],
+#     [2, 2, 2, 2, 2],
+#     [2, 2, 2, 2, 2],
+#     [2, 2, 2, 2, 0]
+# ])
 
 # Sąsiedzi: góra, dół, lewo, prawo
 def neighbors(i, j):
@@ -28,34 +34,56 @@ model.setParam("OutputFlag", 0)
 x = model.addVars(N, N, T, vtype=GRB.BINARY)
 # x[i,j,t] = 1 jeśli biały kamień pozostaje na polu (i, j)-tym w turze t-tej
 y = model.addVars(N, N, T, vtype=GRB.BINARY)
+# x[i,j,t] = 1 jeśli czarny stawia kamień na polu (i, j)-tym w turze t-tej lub jeżeli kamień czarny z tury t-1 pozostaje na planszy
+xl = model.addVars(N, N, T, vtype=GRB.BINARY)
+# x[i,j,t] = 1 jeśli biały kamień pozostaje na polu (i, j)-tym w turze t-tej
+yl = model.addVars(N, N, T, vtype=GRB.BINARY)
 
-# Białe znajdują się tam gdzie na planszy początkowej, chyba, że zostaną zbite
-for i in range(N):
-    for j in range(N):
-        for t in range(T):
-            model.addConstr(y[i, j, t] <= (1 if board[i, j] == white else 0))
 
 # Ustawienie początkowe kamieni czarnych
 for i in range(N):
     for j in range(N):
         model.addConstr(x[i, j, 0] == (1 if board[i, j] == black else 0))
 
-# W każdej turze oprócz zerowej wykonać możemy tylko jeden ruch
-for t in range(1, T):
-    model.addConstr(gp.quicksum(x[i, j, t] for i in range(N) for j in range(N)) <= 1)
-
-# Wykonany ruch nie może się powtórzyć
+# Ustawienie początkowe kamieni białych
 for i in range(N):
     for j in range(N):
-        model.addConstr(gp.quicksum(x[i, j, t] for t in range(T)) <= 1)
+        model.addConstr(y[i, j, 0] == (1 if board[i, j] == white else 0))
 
-# TODO Zbijanie grupy białych kamieni jeśli żaden z elementów składającyh się na grupę nie będą miały oddechu
-# TODO Zapobieganie ruchu w turze, który sprawia, że położenie czarnego kamienia sprawia, że zbita zostaje grupa kamieni czarnych (traci oddech) - wyjątek: jeśli czarny kamień zagraża grupie czarncyh, ale położenie go zbija grupę białych i tworzy się nowy oddech dla zagrożonej grupy czarnych
+# Białe nie mogą być w miejscu gdzie ich wcześniej nie było
+for i in range(N):
+    for j in range(N):
+        for t in range(1, T):
+            model.addConstr(y[i, j, t] <= y[i, j, t-1])
 
-# Funkcja celu
+# Czarne nie mogą zostać podniesione
+for i in range(N):
+    for j in range(N):
+        for t in range(1, T):
+            model.addConstr(x[i, j, t] >= x[i, j, t-1])
+
+# Na danym polu nie może naraz znajdować się biały i czarny kamień
+for i in range(N):
+    for j in range(N):
+        for t in range(T):
+            model.addConstr(x[i, j, t] + y[i, j, t] <= 1)
+
+# W każdej turze oprócz zerowej wyłożyć możemy tylko jeden dodatkowy kamień czarny
+for t in range(1, T):
+    model.addConstr(gp.quicksum(x[i, j, t] - x[i, j, t-1] for i in range(N) for j in range(N)) <= 1)
+
+
+# # Oddechy białego
+# for i in range(N):
+#     for j in range(N):
+#         for t in range(T):
+#             model.addConstr(yl[i, j, t] <= 1 - y[i, j, t] - gp.quicksum(x[i, j, l] for l in range(t+1)))
+
+# Funkcja celu - maksymalizujemy ilość kamieni na planszy
 model.setObjective(
-    gp.quicksum(x[i, j, t] for i in range(N) for j in range(N) for t in range(T)) + 
-    gp.quicksum(y[i, j, t] for i in range(N) for j in range(N) for t in range(T)),
+    gp.quicksum(x[i, j, t] for i in range(N) for j in range(N) for t in range(T)) * N*N + 
+    gp.quicksum(y[i, j, t] for i in range(N) for j in range(N) for t in range(T)) * N*N + 
+    gp.quicksum(yl[i, j, t] for i in range(N) for j in range(N) for t in range(T)),
     GRB.MAXIMIZE
 )
 
@@ -74,10 +102,26 @@ if model.status == gp.GRB.OPTIMAL:
                 row += ". "  # puste     
         row += "       "
         for j in range(N):
-            if max(x[i, j, t].X for t in range(T)) > 0.5:
+            if x[i, j, T-1].X > 0.5:
                 row += "● "  # czarny
-            elif max(y[i, j, t].X for t in range(T)) > 0.5:
+            elif y[i, j, T-1].X > 0.5:
                 row += "○ "  # biały
             else:
                 row += ". "  # puste
         print(row)
+
+    # for t in range(T):
+
+    #     for i in range(N):
+    #         for j in range(N):
+    #             print(round(x[i, j, t].X), end=" ")
+    #         print()
+    #     print()
+    # print()w
+    # for t in range(T):
+    #     for i in range(N):
+    #         for j in range(N):
+    #             print(round(yl[i, j, t].X), end=" ")
+    #         print()
+    #     print()
+    # print()
