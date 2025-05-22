@@ -14,13 +14,22 @@ board = np.array([
     [0, 1, 1, 0, 0],
     [0, 0, 0, 0, 0]
 ])
-# board = np.array([
-#     [2, 2, 2, 2, 2],
-#     [2, 1, 1, 2, 2],
-#     [2, 2, 2, 2, 2],
-#     [2, 2, 2, 2, 2],
-#     [2, 2, 2, 2, 0]
-# ])
+
+N = 4
+T = 3
+board = np.array([
+    [1, 1, 1, 2],
+    [1, 1, 1, 0],
+    [1, 1, 2, 1],
+    [2, 1, 1, 2],
+])
+N = 3
+T = 5
+board = np.array([
+    [1, 1, 1],
+    [0, 2, 0],
+    [0, 1, 1],
+])
 
 # Sąsiedzi: góra, dół, lewo, prawo
 def neighbors(i, j):
@@ -35,7 +44,7 @@ x = model.addVars(N, N, T, vtype=GRB.BINARY)
 # x[i,j,t] = 1 jeśli biały kamień pozostaje na polu (i, j)-tym w turze t-tej
 y = model.addVars(N, N, T, vtype=GRB.BINARY)
 # x[i,j,t] = 1 jeśli czarny stawia kamień na polu (i, j)-tym w turze t-tej lub jeżeli kamień czarny z tury t-1 pozostaje na planszy
-xl = model.addVars(N, N, T, vtype=GRB.BINARY)
+# xl = model.addVars(N, N, T, vtype=GRB.BINARY)
 # x[i,j,t] = 1 jeśli biały kamień pozostaje na polu (i, j)-tym w turze t-tej
 yl = model.addVars(N, N, T, vtype=GRB.BINARY)
 
@@ -66,7 +75,7 @@ for i in range(N):
 for i in range(N):
     for j in range(N):
         for t in range(T):
-            model.addConstr(x[i, j, t] + y[i, j, t] <= 1)
+            model.addConstr(x[i, j, t] + y[i, j, t] * yl[i, j, t] <= 1)
 
 # W każdej turze oprócz zerowej wyłożyć możemy tylko jeden dodatkowy kamień czarny
 for t in range(1, T):
@@ -82,17 +91,18 @@ for i in range(N):
 
             model.addConstr(yl[i, j, t] >= max_var * y[i, j, t])
 
-for i in range(N):
-    for j in range(N):
-        for t in range(1, T):
-            model.addConstr(y[i, j, t-1] - yl[i, j, t-1] <= 1 - y[i, j, t])
+# for i in range(N):
+#     for j in range(N):
+#         for t in range(1, T):
+#             model.addConstr(y[i, j, t-1] - yl[i, j, t-1] <= 1 - y[i, j, t])
 
 
-# Funkcja celu - maksymalizujemy ilość kamieni na planszy
+# Funkcja celu
 model.setObjective(
-    gp.quicksum(x[i, j, t] for i in range(N) for j in range(N) for t in range(T)) * N*N + 
-    gp.quicksum(y[i, j, t] for i in range(N) for j in range(N) for t in range(T)) * N*N -
-    gp.quicksum(yl[i, j, t] for i in range(N) for j in range(N) for t in range(T)),
+    gp.quicksum(x[i, j, t] for i in range(N) for j in range(N) for t in range(T)) + 
+    gp.quicksum(y[i, j, t] for i in range(N) for j in range(N) for t in range(T)) -
+    gp.quicksum(yl[i, j, t] for i in range(N) for j in range(N) for t in range(T)) +
+    gp.quicksum((1 - yl[i, j, t]) * y[i, j, t] for i in range(N) for j in range(N) for t in range(T)),
     GRB.MAXIMIZE
 )
 
@@ -101,38 +111,23 @@ model.optimize()
 if model.status == gp.GRB.OPTIMAL:
     print("\nWynikowa plansza:", model.ObjVal)
     for i in range(N):
-        row = ""
-        for j in range(N):
-            if board[i, j] == black:
-                row += "● "  # czarny
-            elif board[i, j] == white:
-                row += "○ "  # biały
-            else:
-                row += ". "  # puste     
-        row += "    "
-        for j in range(N):
-            if x[i, j, T-1].X > 0.5:
-                row += "● "  # czarny
-            elif y[i, j, T-1].X > 0.5:
-                row += "○ "  # biały
-            else:
-                row += ". "  # puste
+        row = "" 
+        for t in range(T):  
+            for j in range(N):
+                if x[i, j, t].X > 0.5:
+                    row += "● "  # czarny
+                elif y[i, j, t].X * yl[i, j, t].X> 0.5:
+                    row += "○ "  # biały
+                else:
+                    row += ". "  # puste
+            row += "    "
         print(row)
     print()
-    for t in range(T):
-        for i in range(N):
+    for i in range(N):
+        row = "" 
+        for t in range(T):  
             for j in range(N):
-                print(round(y[i, j, t].X), end=" ")
-            print("    ", end="")
-            for j in range(N):
-                print(round(yl[i, j, t].X), end=" ")
-            print()
-
-    
-    # for t in range(T):
-    #     for i in range(N):
-    #         for j in range(N):
-    #             print(round(sum((1-x[ni, nj, t].X)*(1-y[ni, nj, t].X) + yl[ni, nj, t].X for ni, nj in neighbors(i, j))), end=" ")
-    #         print()
-    #     print()
-    # print()
+                row += f"{round(yl[i, j, t].X)} "
+            row += "    "
+        print(row)
+    print()
