@@ -72,17 +72,6 @@ for i in range(N):
 for t in range(1, T):
     model.addConstr(gp.quicksum(x[i, j, t] - x[i, j, t-1] for i in range(N) for j in range(N)) <= 1)
 
-# # Oddechy białego w turze t-tej
-# for i in range(N):
-#     for j in range(N):
-#         for t in range(T):
-#             # Białe kamienie z oddechami mogą być tylko tam, gdzie są białe kamienie
-#             model.addConstr(yl[i, j, t] <= y[i, j, t])
-#             # Jeśli conajmniej 1 sąsiednie pole jest puste, to kamień ma oddech 
-#             # model.addConstr(yl[i, j, t] <= gp.quicksum((1-x[ni, nj, t])*(1-y[ni, nj, t]) for ni, nj in neighbors(i, j)))
-#             # Jeśli na conajmniej 1 sąsiednim polu jest biały kamień, który ma oddech, to kamień ma oddech 
-#             model.addConstr(yl[i, j, t] <= gp.quicksum(yl[ni, nj, t] for ni, nj in neighbors(i, j))) 
-
 for i in range(N):
     for j in range(N):
         for t in range(T):
