@@ -3,7 +3,7 @@ import numpy as np
 from gurobipy import GRB
 
 N = 5
-T = 1
+T = 2
 
 empty, black, white = 0, 1, 2
 
@@ -72,21 +72,37 @@ for i in range(N):
 for t in range(1, T):
     model.addConstr(gp.quicksum(x[i, j, t] - x[i, j, t-1] for i in range(N) for j in range(N)) <= 1)
 
-# Oddechy białego w turze t-tej
+# # Oddechy białego w turze t-tej
+# for i in range(N):
+#     for j in range(N):
+#         for t in range(T):
+#             # Białe kamienie z oddechami mogą być tylko tam, gdzie są białe kamienie
+#             model.addConstr(yl[i, j, t] <= y[i, j, t])
+#             # Jeśli conajmniej 1 sąsiednie pole jest puste, to kamień ma oddech 
+#             # model.addConstr(yl[i, j, t] <= gp.quicksum((1-x[ni, nj, t])*(1-y[ni, nj, t]) for ni, nj in neighbors(i, j)))
+#             # Jeśli na conajmniej 1 sąsiednim polu jest biały kamień, który ma oddech, to kamień ma oddech 
+#             model.addConstr(yl[i, j, t] <= gp.quicksum(yl[ni, nj, t] for ni, nj in neighbors(i, j))) 
+
 for i in range(N):
     for j in range(N):
         for t in range(T):
-            # Białe kamienie z oddechami mogą być tylko tam, gdzie są białe kamienie
-            model.addConstr(yl[i, j, t] <= y[i, j, t])
-            # Jeśli conajmniej 1 sąsiednie pole jest puste, to kamień ma oddech 
-            # model.addConstr(yl[i, j, t] <= gp.quicksum((1-x[ni, nj, t])*(1-y[ni, nj, t]) for ni, nj in neighbors(i, j)))
-            # Jeśli na conajmniej 1 sąsiednim polu jest biały kamień, który ma oddech, to kamień ma oddech 
-            model.addConstr(yl[i, j, t] <= gp.quicksum(yl[ni, nj, t] for ni, nj in neighbors(i, j)))   
+            model.addConstr(yl[i, j, t] >= (1 - x[i, j, t]) * (1 - y[i, j, t]))
+
+            max_var = model.addVar(vtype=GRB.BINARY)
+            model.addConstr(max_var == gp.max_(yl[ni, nj, t] for ni, nj in neighbors(i, j)))
+
+            model.addConstr(yl[i, j, t] >= max_var * y[i, j, t])
+
+for i in range(N):
+    for j in range(N):
+        for t in range(1, T):
+            model.addConstr(y[i, j, t-1] - yl[i, j, t-1] <= 1 - y[i, j, t])
+
 
 # Funkcja celu - maksymalizujemy ilość kamieni na planszy
 model.setObjective(
     gp.quicksum(x[i, j, t] for i in range(N) for j in range(N) for t in range(T)) * N*N + 
-    gp.quicksum(y[i, j, t] for i in range(N) for j in range(N) for t in range(T)) * N*N +
+    gp.quicksum(y[i, j, t] for i in range(N) for j in range(N) for t in range(T)) * N*N -
     gp.quicksum(yl[i, j, t] for i in range(N) for j in range(N) for t in range(T)),
     GRB.MAXIMIZE
 )
@@ -104,7 +120,7 @@ if model.status == gp.GRB.OPTIMAL:
                 row += "○ "  # biały
             else:
                 row += ". "  # puste     
-        row += "       "
+        row += "    "
         for j in range(N):
             if x[i, j, T-1].X > 0.5:
                 row += "● "  # czarny
@@ -113,21 +129,16 @@ if model.status == gp.GRB.OPTIMAL:
             else:
                 row += ". "  # puste
         print(row)
-
-    # for t in range(T):
-    #     for i in range(N):
-    #         for j in range(N):
-    #             print(round(z[i, j, t].X), end=" ")
-    #         print()
-    #     print()
-    # print()
+    print()
     for t in range(T):
         for i in range(N):
             for j in range(N):
+                print(round(y[i, j, t].X), end=" ")
+            print("    ", end="")
+            for j in range(N):
                 print(round(yl[i, j, t].X), end=" ")
             print()
-        print()
-    print()
+
     
     # for t in range(T):
     #     for i in range(N):
