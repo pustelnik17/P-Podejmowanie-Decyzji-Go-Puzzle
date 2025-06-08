@@ -24,13 +24,13 @@ board = [
 #     [2, 1, 1, 2],
 # ]
 
-# N = 3
-# T = 5
-# board = [
-#     [1, 1, 1],
-#     [0, 2, 0],
-#     [0, 1, 1],
-# ]
+N = 3
+T = 5
+board = [
+    [2, 2, 2],
+    [0, 2, 0],
+    [2, 2, 2],
+]
 
 boardWhite = np.array(board)
 boardBlack = np.array(board)
@@ -79,6 +79,8 @@ for i in range(N):
         for t in range(1, T):
             model.addConstr(x[i, j, t] >= x[i, j, t-1])
 
+            model.addConstr(x[i, j, t] <= xl[i, j, t-1])
+
 # Na danym polu nie może naraz znajdować się biały i czarny kamień
 for i in range(N):
     for j in range(N):
@@ -87,7 +89,8 @@ for i in range(N):
 
 # W każdej turze oprócz zerowej wyłożyć możemy tylko jeden dodatkowy kamień czarny
 for t in range(1, T):
-    model.addConstr(gp.quicksum(x[i, j, t] - x[i, j, t-1] for i in range(N) for j in range(N)) <= 1)
+    model.addConstr(gp.quicksum(x[i, j, t] for i in range(N) for j in range(N)) - 
+                    gp.quicksum(x[i, j, t-1] for i in range(N) for j in range(N)) <= 1)
 
 for i in range(N):
     for j in range(N):
@@ -95,29 +98,26 @@ for i in range(N):
             # Jeśli pole jest puste to ma oddech
             model.addConstr(yl[i, j, t] >= (1 - x[i, j, t]) * (1 - boardWhite[i, j]))
 
-            # Biały kamień ma oddech, jeśli jeden z sąsiadów ma oddech
-            max_var = model.addVar(vtype=GRB.BINARY)
-            model.addConstr(max_var == gp.max_(yl[ni, nj, t] for ni, nj in neighbors(i, j)))
-            model.addConstr(yl[i, j, t] >= max_var * boardWhite[i, j])
+            for ni, nj in neighbors(i, j):
+                model.addConstr(yl[i, j, t] >= yl[ni, nj, t] * boardWhite[i, j])
 
-# for i in range(N):
-#     for j in range(N):
-#         for t in range(T):
-#             # Jeśli pole jest puste to ma oddech
-#             model.addConstr(xl[i, j, t] >= (1 - x[i, j, t]) * (1 - boardWhite[i, j]))
 
-#             # Biały kamień ma oddech, jeśli jeden z sąsiadów ma oddech
-#             max_var = model.addVar(vtype=GRB.BINARY)
-#             model.addConstr(max_var == gp.max_(yl[ni, nj, t] for ni, nj in neighbors(i, j)))
-#             model.addConstr(yl[i, j, t] >= max_var * boardWhite[i, j])
+for i in range(N):
+    for j in range(N):
+        for t in range(T):
+            # Jeśli pole jest puste to ma oddech
+            model.addConstr(xl[i, j, t] >= (1 - x[i, j, t]) * (1 - boardWhite[i, j] * yl[i, j, t]))
+
+            for ni, nj in neighbors(i, j):
+                model.addConstr(xl[i, j, t] >= xl[ni, nj, t] * x[i, j, t])
 
 
 
 # Funkcja celu
 model.setObjective(
     gp.quicksum(x[i, j, t] for i in range(N) for j in range(N) for t in range(T))
-    - N*N * gp.quicksum(yl[i, j, t] for i in range(N) for j in range(N) for t in range(T))
-    - N*N * gp.quicksum(yl[i, j, t] for i in range(N) for j in range(N) for t in range(T)),
+    - gp.quicksum(yl[i, j, t] for i in range(N) for j in range(N) for t in range(T))
+    - gp.quicksum(xl[i, j, t] for i in range(N) for j in range(N) for t in range(T)),
     GRB.MAXIMIZE
 )
 
@@ -147,3 +147,11 @@ if model.status == gp.GRB.OPTIMAL:
         print(row)
     print()
     
+    for i in range(N):
+        row = "" 
+        for t in range(T):  
+            for j in range(N):
+                row += f"{round(xl[i, j, t].X)} "
+            row += "    "
+        print(row)
+    print()
