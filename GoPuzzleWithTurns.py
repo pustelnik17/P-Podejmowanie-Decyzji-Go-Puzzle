@@ -30,6 +30,13 @@ board = np.array([
     [0, 2, 0],
     [0, 1, 1],
 ])
+N = 3
+T = 5
+board = np.array([
+    [0, 0, 2],
+    [0, 2, 0],
+    [2, 0, 2],
+])
 
 # Sąsiedzi: góra, dół, lewo, prawo
 def neighbors(i, j):
@@ -64,6 +71,7 @@ for i in range(N):
     for j in range(N):
         for t in range(1, T):
             model.addConstr(y[i, j, t] <= y[i, j, t-1])
+            # model.addConstr(y[i, j, t] == y[i, j , t-1] * yl[i, j ,t])
 
 # Czarne nie mogą zostać podniesione
 for i in range(N):
@@ -86,23 +94,21 @@ for i in range(N):
         for t in range(T):
             model.addConstr(yl[i, j, t] >= (1 - x[i, j, t]) * (1 - y[i, j, t]))
 
-            max_var = model.addVar(vtype=GRB.BINARY)
-            model.addConstr(max_var == gp.max_(yl[ni, nj, t] for ni, nj in neighbors(i, j)))
+            for ni, nj in neighbors(i, j):
+                model.addConstr(yl[i, j, t] >= yl[ni, nj, t] * y[i, j, t])
 
-            model.addConstr(yl[i, j, t] >= max_var * y[i, j, t])
+            
+            # max_var = model.addVar(vtype=GRB.BINARY)
+            # model.addConstr(max_var == gp.max_(yl[ni, nj, t] for ni, nj in neighbors(i, j)))
 
-# for i in range(N):
-#     for j in range(N):
-#         for t in range(1, T):
-#             model.addConstr(y[i, j, t-1] - yl[i, j, t-1] <= 1 - y[i, j, t])
+            # model.addConstr(yl[i, j, t] >= max_var * y[i, j, t])
 
 
 # Funkcja celu
 model.setObjective(
     gp.quicksum(x[i, j, t] for i in range(N) for j in range(N) for t in range(T)) + 
     gp.quicksum(y[i, j, t] for i in range(N) for j in range(N) for t in range(T)) -
-    gp.quicksum(yl[i, j, t] for i in range(N) for j in range(N) for t in range(T)) +
-    gp.quicksum((1 - yl[i, j, t]) * y[i, j, t] for i in range(N) for j in range(N) for t in range(T)),
+    gp.quicksum(yl[i, j, t] for i in range(N) for j in range(N) for t in range(T)),
     GRB.MAXIMIZE
 )
 
@@ -127,7 +133,7 @@ if model.status == gp.GRB.OPTIMAL:
         row = "" 
         for t in range(T):  
             for j in range(N):
-                row += f"{round(yl[i, j, t].X)} "
+                row += f"{round(y[i, j, t].X)} "
             row += "    "
         print(row)
     print()
