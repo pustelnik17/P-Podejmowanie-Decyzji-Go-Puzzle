@@ -70,6 +70,7 @@ xl = model.addVars(N, N, T, vtype=GRB.BINARY)
 yl = model.addVars(N, N, T, vtype=GRB.BINARY)
 
 
+
 # Ustawienie początkowe kamieni czarnych
 for i in range(N):
     for j in range(N):
@@ -138,6 +139,7 @@ for i in range(N):
             model.addGenConstrAnd(inLibertedString, [maxVar, x[i, j, t]])
             
             model.addGenConstrOr(xl[i, j , t], [isEmpty, inLibertedString])
+            
 
 # Punkty liczone są z ilości wystawionych kamieni czarnych oraz ilości zbitych kamieni białych
 model.setObjective(
@@ -164,35 +166,3 @@ if model.status == gp.GRB.OPTIMAL:
             row += "    "
         print(row)
     print()
-    # for i in range(N):
-    #     row = "" 
-    #     for t in range(T):  
-    #         for j in range(N):
-    #             row += f"{round(yl[i, j, t].X)} "
-    #         row += "    "
-    #     print(row)
-    # print()
-    # for i in range(N):
-    #     row = "" 
-    #     for t in range(T):  
-    #         for j in range(N):
-    #             row += f"{round(y[i, j, t].X)} "
-    #         row += "    "
-    #     print(row)
-    # print()
-    # for i in range(N):
-    #     row = "" 
-    #     for t in range(T):  
-    #         for j in range(N):
-    #             row += f"{round(x[i, j, t].X)} "
-    #         row += "    "
-    #     print(row)
-    # print()
-    # for i in range(N):
-    #     row = "" 
-    #     for t in range(T):  
-    #         for j in range(N):
-    #             row += f"{round(xl[i, j, t].X)} "
-    #         row += "    "
-    #     print(row)
-    # print()
